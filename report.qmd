@@ -1,6 +1,6 @@
 ---
 title: "EV Power - Lab 4 Project Report"
-format: typst
+format: pdf
 ---
 
 # Example Solution 1
@@ -8,27 +8,77 @@ format: typst
 ## **Part 0: libraries**
 
 ```{r}
-
+library(dplyr)
+library(tidyverse)
+library(sf)
+library(ggplot2)
+library(stringr)
+library(rnaturalearth)
 ```
 
 ## **Part 1:** **Defining Research Question**
 
-Chosen Question:
+Chosen Question: What is the share of electricity that comes from clean sources by state in 2023?
 
 ## **Part 2: Data Preparation and Cleaning**
 
 ```{r}
+clean <- read_csv("data/renew-use-2023.csv")
+total <- read_csv("data/total-use-2023.csv")
 
+colnames(clean) <- tolower(colnames(clean))
+clean_2023 <- select(clean, -energy_source)
+
+head(clean_2023)
 ```
 
 ## **Part 3: Joining / Pivoting Datasets for Analysis**
 
 ```{r}
+total_2023 <- total |> 
+    select(-Energy_Source) |>
+    pivot_longer(
+        cols = everything(),
+        names_to = "state",
+        values_to = "total_use_2023"
+    )
 
+head(total_2023)
+
+renew <- clean_2023$renewable_use_2023
+clean_2023$renewable_use_2023 <- 
+    str_replace(renew, "kWh|MWh", "") |>
+    as.numeric()
+
+renew_2023 <- clean_2023 |>
+    group_by(state) |>
+    summarize(renewable_use = sum(renewable_use_2023, na.rm = TRUE))
+
+use_2023 <- 
+    left_join(renew_2023, total_2023, by = "state")|>
+    group_by(state, renewable_use) |>
+    summarize(total_use = sum(total_use_2023, na.rm = TRUE))
+
+use_2023 |>
+    mutate(renewable_percentage = renewable_use / total_use * 100)
+
+head(use_2023)
 ```
 
 ## **Part 4: Mapping Visualization**
 
 ```{r}
+us_states <- ne_states(country = "united states of america", returnclass = "sf")
+us_joined <- us_states |>
+    left_join(use_2023, by = join_by(name == state))
 
+# ggplot(us_joined)+
+#     geom_sf(aes(fill = renewable_percentage), color = "white")+
+#     scale_fill_continuous(name = "Percentage", na.value = "grey90") +
+#     labs(title = "The Share of Electricity from Clean Sources by State") +
+#     theme_minimal()
 ```
+
+## **Part 5: 
+
+I analyzed the percentage of clean energy in total energy use by state in 2023, but when creating the map, I encountered an issue that I was unable to solve, and the map can't display.
